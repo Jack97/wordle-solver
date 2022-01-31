@@ -1,5 +1,11 @@
 package main
 
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+)
+
 type FeedbackColour uint8
 
 const (
@@ -14,10 +20,49 @@ type FeedbackResolver interface {
 	Resolve(guess Word) Feedback
 }
 
-type StdinFeedbackResolver struct{}
+type InteractiveFeedbackResolver struct {
+	ReadWriter *bufio.ReadWriter
+}
 
-func (r *StdinFeedbackResolver) Resolve(guess Word) Feedback {
-	panic("not implemented")
+func (r *InteractiveFeedbackResolver) Resolve(guess Word) Feedback {
+	r.ReadWriter.WriteString("Enter feedback [Grey=0, Yellow=1, Green=2]:\n")
+
+	for {
+		r.ReadWriter.Flush()
+
+		input, err := r.ReadWriter.ReadBytes('\n')
+		if err != nil {
+			r.ReadWriter.WriteString("An unexpected error occurred. Please try again:\n")
+			continue
+		}
+		input = bytes.TrimSpace(input)
+
+		if len(input) != 5 {
+			r.ReadWriter.WriteString(fmt.Sprintf("Expected 5 digits, received %d. Please try again:\n", len(input)))
+			continue
+		}
+
+		feedback := Feedback{GREY, GREY, GREY, GREY, GREY}
+		validFeedback := true
+
+		for i := 0; i < 5; i++ {
+			if input[i] == '2' {
+				feedback[i] = GREEN
+			} else if input[i] == '1' {
+				feedback[i] = YELLOW
+			} else if input[i] != '0' {
+				validFeedback = false
+				break
+			}
+		}
+
+		if !validFeedback {
+			r.ReadWriter.WriteString("Invalid feedback format. Please try again using the following as an example [01210]:\n")
+			continue
+		}
+
+		return feedback
+	}
 }
 
 type TestFeedbackResolver struct {

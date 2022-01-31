@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 )
 
 func main() {
@@ -18,18 +21,23 @@ func main() {
 		log.Fatal(err)
 	}
 
+	readWriter := bufio.NewReadWriter(bufio.NewReader(os.Stdin), bufio.NewWriter(os.Stdout))
+
 	game := &Game{
 		Dictionary: dictionary,
-		FeedbackResolver: &TestFeedbackResolver{
-			Answer: Word{'k', 'n', 'o', 'l', 'l'},
+		Writer:     readWriter.Writer,
+		FeedbackResolver: &InteractiveFeedbackResolver{
+			ReadWriter: readWriter,
 		},
 	}
 
 	result := game.Play()
 
-	log.Printf("Win: %t", result.Win)
-
-	for i, guess := range result.Guesses {
-		log.Printf("Guess #%d: %s", i+1, guess)
+	if result.Win {
+		readWriter.WriteString(fmt.Sprintf("Completed the wordle, %d/6 guesses used.\n", len(result.Guesses)))
+	} else {
+		readWriter.WriteString(fmt.Sprintf("Failed to complete the wordle, %d possible answers remaining.\n", len(game.Dictionary.RemainingPossibleAnswers)))
 	}
+
+	readWriter.Flush()
 }

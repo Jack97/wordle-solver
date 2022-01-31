@@ -1,18 +1,23 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"math"
 	"math/rand"
 )
 
-type Game struct {
-	Dictionary       *Dictionary
-	FeedbackResolver FeedbackResolver
-}
-
 type GameResult struct {
 	Win     bool
 	Guesses []Word
+}
+
+var optimalFirstGuess = Word{'s', 'o', 'a', 'r', 'e'}
+
+type Game struct {
+	Dictionary       *Dictionary
+	Writer           *bufio.Writer
+	FeedbackResolver FeedbackResolver
 }
 
 func (g *Game) Play() GameResult {
@@ -24,8 +29,19 @@ func (g *Game) Play() GameResult {
 	g.Dictionary.ResetRemainingPossibleAnswers()
 
 	for i := 0; i < 6; i++ {
-		guess := g.guess()
+		var guess Word
+
+		if i == 0 {
+			guess = optimalFirstGuess
+		} else {
+			guess = g.guess()
+		}
+
 		guesses = append(guesses, guess)
+
+		g.Writer.WriteString(fmt.Sprintf("Guess #%d: %s\n", i+1, guess))
+		g.Writer.Flush()
+
 		feedback := g.FeedbackResolver.Resolve(guess)
 
 		if g.isComplete(feedback) {

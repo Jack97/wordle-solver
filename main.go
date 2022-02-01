@@ -3,41 +3,49 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 )
 
 func main() {
+	errorLogger := newConsoleLogger(os.Stderr)
+
 	dictionaryFile, err := ioutil.ReadFile("dictionary.json")
 	if err != nil {
-		log.Fatal(err)
+		errorLogger.Fatalf("Error reading dictionary.json: %s", err)
 	}
 
 	dictionary := &Dictionary{}
 	err = json.Unmarshal(dictionaryFile, &dictionary)
 	if err != nil {
-		log.Fatal(err)
+		errorLogger.Fatalf("Error unmarshalling dictionary.json: %s", err)
 	}
 
-	readWriter := bufio.NewReadWriter(bufio.NewReader(os.Stdin), bufio.NewWriter(os.Stdout))
+	logger := newConsoleLogger(os.Stdout)
 
 	game := &Game{
 		Dictionary: dictionary,
-		Writer:     readWriter.Writer,
 		FeedbackResolver: &InteractiveFeedbackResolver{
-			ReadWriter: readWriter,
+			Logger:  logger,
+			Scanner: bufio.NewScanner(os.Stdin),
 		},
 	}
 
-	result := game.Play()
-
-	if result.Win {
-		readWriter.WriteString(fmt.Sprintf("Completed the wordle, %d/6 guesses used.\n", len(result.Guesses)))
-	} else {
-		readWriter.WriteString(fmt.Sprintf("Failed to complete the wordle, %d possible answers remaining.\n", len(game.Dictionary.RemainingPossibleAnswers)))
+	var result *GameResult
+	result, err = game.Play()
+	if err != nil {
+		errorLogger.Fatalf("Unexpected error: %s", err)
 	}
 
-	readWriter.Flush()
+	if result.Win {
+		logger.Printf("Completed the wordle in %d/6 guesses", len(result.Guesses))
+		return
+	}
+
+	errorLogger.Printf("Failed to complete the wordle, %d possible answers remaining", len(game.Dictionary.RemainingPossibleAnswers))
+}
+
+func newConsoleLogger(file *os.File) *log.Logger {
+	return log.New(file, "", 0)
 }

@@ -2,14 +2,16 @@ package main
 
 import "fmt"
 
-type Word [5]byte
+const wordLength = 5
+
+type Word [wordLength]byte
 
 func (w *Word) UnmarshalText(data []byte) error {
-	if len(data) != 5 {
-		return fmt.Errorf("invalid word length: %s", data)
+	if len(data) != wordLength {
+		return fmt.Errorf("invalid word length '%s'", data)
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < wordLength; i++ {
 		w[i] = data[i]
 	}
 
@@ -22,7 +24,7 @@ type Dictionary struct {
 	RemainingPossibleAnswers []Word
 }
 
-func (d Dictionary) ValidGuesses() []Word {
+func (d *Dictionary) ValidGuesses() []Word {
 	return append(d.AcceptedGuesses, d.RemainingPossibleAnswers...)
 }
 
@@ -34,43 +36,43 @@ func (d *Dictionary) UpdateRemainingPossibleAnswers(guess Word, feedback Feedbac
 	var remainingPossibleAnswers []Word
 
 	for _, possibleAnswer := range d.RemainingPossibleAnswers {
-		possibleAnswerChars := map[byte]uint8{}
-		guessChars := map[byte]uint8{}
-		knownGuessChars := map[byte]uint8{}
+		possibleAnswerChars := map[byte]int{}
+		guessChars := map[byte]int{}
+		greenYellowChars := map[byte]int{}
 
-		for i := 0; i < 5; i++ {
+		for i := 0; i < wordLength; i++ {
 			possibleAnswerChars[possibleAnswer[i]]++
 			guessChars[guess[i]]++
 
 			if feedback[i] == GREEN || feedback[i] == YELLOW {
-				knownGuessChars[guess[i]]++
+				greenYellowChars[guess[i]]++
 			}
 		}
 
-		isPossibleAnswer := true
+		keep := true
 
-		for i := 0; i < 5; i++ {
-			isSameChar := possibleAnswer[i] == guess[i]
+		for i := 0; i < wordLength; i++ {
+			matching := possibleAnswer[i] == guess[i]
 
 			if feedback[i] == GREEN {
-				if !isSameChar {
-					isPossibleAnswer = false
+				if !matching {
+					keep = false
 					break
 				}
 			} else if feedback[i] == YELLOW {
-				if isSameChar || possibleAnswerChars[guess[i]] < knownGuessChars[guess[i]] {
-					isPossibleAnswer = false
+				if matching || possibleAnswerChars[guess[i]] < greenYellowChars[guess[i]] {
+					keep = false
 					break
 				}
 			} else { // GREY
-				if isSameChar || possibleAnswerChars[guess[i]] >= guessChars[guess[i]] {
-					isPossibleAnswer = false
+				if matching || possibleAnswerChars[guess[i]] >= guessChars[guess[i]] {
+					keep = false
 					break
 				}
 			}
 		}
 
-		if isPossibleAnswer {
+		if keep {
 			remainingPossibleAnswers = append(remainingPossibleAnswers, possibleAnswer)
 		}
 	}

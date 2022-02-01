@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
+	"log"
 )
 
 type FeedbackColour uint8
@@ -14,50 +14,28 @@ const (
 	GREEN
 )
 
-type Feedback [5]FeedbackColour
+type Feedback [wordLength]FeedbackColour
 
 type FeedbackResolver interface {
-	Resolve(guess Word) Feedback
+	Resolve(guess Word, attempt int) Feedback
 }
 
 type InteractiveFeedbackResolver struct {
-	ReadWriter *bufio.ReadWriter
+	Logger  *log.Logger
+	Scanner *bufio.Scanner
 }
 
-func (r *InteractiveFeedbackResolver) Resolve(guess Word) Feedback {
-	r.ReadWriter.WriteString("Enter feedback [Grey=0, Yellow=1, Green=2]:\n")
+func (r *InteractiveFeedbackResolver) Resolve(guess Word, attempt int) Feedback {
+	r.Logger.Printf("Guess #%d: %s", attempt, guess)
+	r.Logger.Printf("Enter feedback (Grey = 0, Yellow = 1, Green = 2):")
 
 	for {
-		r.ReadWriter.Flush()
+		r.Scanner.Scan()
 
-		input, err := r.ReadWriter.ReadBytes('\n')
+		feedback, err := r.parseFeedback(r.Scanner.Bytes())
 		if err != nil {
-			r.ReadWriter.WriteString("An unexpected error occurred. Please try again:\n")
-			continue
-		}
-		input = bytes.TrimSpace(input)
-
-		if len(input) != 5 {
-			r.ReadWriter.WriteString(fmt.Sprintf("Expected 5 digits, received %d. Please try again:\n", len(input)))
-			continue
-		}
-
-		feedback := Feedback{GREY, GREY, GREY, GREY, GREY}
-		validFeedback := true
-
-		for i := 0; i < 5; i++ {
-			if input[i] == '2' {
-				feedback[i] = GREEN
-			} else if input[i] == '1' {
-				feedback[i] = YELLOW
-			} else if input[i] != '0' {
-				validFeedback = false
-				break
-			}
-		}
-
-		if !validFeedback {
-			r.ReadWriter.WriteString("Invalid feedback format. Please try again using the following as an example [01210]:\n")
+			r.Logger.Printf("Feedback validation failed: %s", err)
+			r.Logger.Printf("Please try again (e.g. 21012):")
 			continue
 		}
 
@@ -65,39 +43,65 @@ func (r *InteractiveFeedbackResolver) Resolve(guess Word) Feedback {
 	}
 }
 
-type TestFeedbackResolver struct {
+func (r *InteractiveFeedbackResolver) parseFeedback(feedbackBytes []byte) (Feedback, error) {
+	feedback := Feedback{GREY, GREY, GREY, GREY, GREY}
+
+	if len(feedbackBytes) != 5 {
+		return feedback, fmt.Errorf("invalid length")
+	}
+
+	for i := 0; i < wordLength; i++ {
+		char := feedbackBytes[i]
+
+		switch char {
+		case '2':
+			feedback[i] = GREEN
+		case '1':
+			feedback[i] = YELLOW
+		case '0':
+			// Do nothing
+		default:
+			return feedback, fmt.Errorf("invalid character '%c'", char)
+		}
+	}
+
+	return feedback, nil
+}
+
+type SimulationFeedbackResolver struct {
 	Answer Word
 }
 
-func (r *TestFeedbackResolver) Resolve(guess Word) Feedback {
+func (r *SimulationFeedbackResolver) Resolve(guess Word, _ int) Feedback {
 	return buildFeedback(guess, r.Answer)
 }
 
 func buildFeedback(guess, answer Word) Feedback {
-	answerChars := map[byte]uint8{}
-	matchingChars := map[byte]uint8{}
+	feedback := Feedback{GREY, GREY, GREY, GREY, GREY}
 
-	for i := 0; i < 5; i++ {
+	answerChars := map[byte]int{}
+	greenChars := map[byte]int{}
+	yellowChars := map[byte]int{}
+
+	for i := 0; i < wordLength; i++ {
 		answerChars[answer[i]]++
 
 		if guess[i] == answer[i] {
-			matchingChars[guess[i]]++
+			feedback[i] = GREEN
+			greenChars[guess[i]]++
 		}
 	}
 
-	feedback := Feedback{GREY, GREY, GREY, GREY, GREY}
-	previousChars := map[byte]uint8{}
-
-	for i := 0; i < 5; i++ {
-		if guess[i] == answer[i] {
-			feedback[i] = GREEN
-		} else if answerChars[guess[i]] > 0 {
-			if previousChars[guess[i]] < answerChars[guess[i]]-matchingChars[guess[i]] {
-				feedback[i] = YELLOW
-			}
+	for i := 0; i < wordLength; i++ {
+		if feedback[i] == GREEN {
+			continue
 		}
 
-		previousChars[guess[i]]++
+		// The character is present in the answer, and it's not been seen as many times as it occurs
+		if answerChars[guess[i]] > 0 && yellowChars[guess[i]] < answerChars[guess[i]]-greenChars[guess[i]] {
+			feedback[i] = YELLOW
+			yellowChars[guess[i]]++
+		}
 	}
 
 	return feedback

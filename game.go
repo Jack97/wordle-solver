@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"math"
 	"math/rand"
@@ -12,15 +11,19 @@ type GameResult struct {
 	Guesses []Word
 }
 
-var optimalFirstGuess = Word{'s', 'o', 'a', 'r', 'e'}
-
 type Game struct {
 	Dictionary       *Dictionary
-	Writer           *bufio.Writer
 	FeedbackResolver FeedbackResolver
 }
 
-func (g *Game) Play() GameResult {
+const maxAttempts = 6
+
+// The calculation to determine the optimal first guess is extremely expensive
+// and will always produce the same result. Calculating the guess ahead of time
+// drastically improves the solver's performance.
+var optimalFirstGuess = Word{'s', 'o', 'a', 'r', 'e'}
+
+func (g *Game) Play() (*GameResult, error) {
 	var (
 		win     bool
 		guesses []Word
@@ -28,21 +31,15 @@ func (g *Game) Play() GameResult {
 
 	g.Dictionary.ResetRemainingPossibleAnswers()
 
-	for i := 0; i < 6; i++ {
-		var guess Word
-
-		if i == 0 {
-			guess = optimalFirstGuess
-		} else {
-			guess = g.guess()
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		guess, err := g.guess(attempt)
+		if err != nil {
+			return nil, err
 		}
 
 		guesses = append(guesses, guess)
 
-		g.Writer.WriteString(fmt.Sprintf("Guess #%d: %s\n", i+1, guess))
-		g.Writer.Flush()
-
-		feedback := g.FeedbackResolver.Resolve(guess)
+		feedback := g.FeedbackResolver.Resolve(guess, attempt)
 
 		if g.isComplete(feedback) {
 			win = true
@@ -52,13 +49,21 @@ func (g *Game) Play() GameResult {
 		g.Dictionary.UpdateRemainingPossibleAnswers(guess, feedback)
 	}
 
-	return GameResult{Win: win, Guesses: guesses}
+	return &GameResult{Win: win, Guesses: guesses}, nil
 }
 
-func (g *Game) guess() Word {
+func (g *Game) guess(attempt int) (Word, error) {
+	if attempt == 1 {
+		return optimalFirstGuess, nil
+	}
+
+	if len(g.Dictionary.RemainingPossibleAnswers) == 0 {
+		return Word{}, fmt.Errorf("no remaining possible answers")
+	}
+
 	if len(g.Dictionary.RemainingPossibleAnswers) <= 2 {
 		// Return a random answer if the probability of it being correct is >= 50%
-		return g.Dictionary.RemainingPossibleAnswers[rand.Intn(len(g.Dictionary.RemainingPossibleAnswers))]
+		return g.Dictionary.RemainingPossibleAnswers[rand.Intn(len(g.Dictionary.RemainingPossibleAnswers))], nil
 	}
 
 	var (
@@ -87,12 +92,12 @@ func (g *Game) guess() Word {
 		}
 	}
 
-	return optimalGuess
+	return optimalGuess, nil
 }
 
 func (g *Game) isComplete(feedback Feedback) bool {
-	for i := 0; i < 5; i++ {
-		if feedback[i] != GREEN {
+	for _, colour := range feedback {
+		if colour != GREEN {
 			return false
 		}
 	}

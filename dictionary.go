@@ -36,6 +36,8 @@ func (d *Dictionary) UpdateRemainingPossibleAnswers(guess Word, feedback Feedbac
 	var remainingPossibleAnswers []Word
 
 	for _, possibleAnswer := range d.RemainingPossibleAnswers {
+		keep := true
+
 		possibleAnswerChars := map[byte]int{}
 		guessChars := map[byte]int{}
 		greenYellowChars := map[byte]int{}
@@ -48,8 +50,6 @@ func (d *Dictionary) UpdateRemainingPossibleAnswers(guess Word, feedback Feedbac
 				greenYellowChars[guess[i]]++
 			}
 		}
-
-		keep := true
 
 		for i := 0; i < wordLength; i++ {
 			match := possibleAnswer[i] == guess[i]

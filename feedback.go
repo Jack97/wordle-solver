@@ -37,7 +37,7 @@ type InteractiveFeedbackResolver struct {
 
 func (r *InteractiveFeedbackResolver) Resolve(guess Word, attempt int) Feedback {
 	r.Logger.Printf("Guess #%d: %s", attempt, guess)
-	r.Logger.Printf("Enter feedback (Grey = 0, Yellow = 1, Green = 2):")
+	r.Logger.Print("Enter feedback (Grey = 0, Yellow = 1, Green = 2):")
 
 	for {
 		r.Scanner.Scan()
@@ -45,7 +45,7 @@ func (r *InteractiveFeedbackResolver) Resolve(guess Word, attempt int) Feedback 
 		feedback, err := r.parseFeedback(r.Scanner.Bytes())
 		if err != nil {
 			r.Logger.Printf("Feedback validation failed: %s", err)
-			r.Logger.Printf("Please try again (e.g. 21012):")
+			r.Logger.Print("Please try again (e.g. 21012):")
 			continue
 		}
 

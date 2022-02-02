@@ -16,6 +16,16 @@ const (
 
 type Feedback [wordLength]FeedbackColour
 
+func (f *Feedback) Success() bool {
+	for _, colour := range f {
+		if colour != GREEN {
+			return false
+		}
+	}
+
+	return true
+}
+
 type FeedbackResolver interface {
 	Resolve(guess Word, attempt int) Feedback
 }
@@ -43,15 +53,15 @@ func (r *InteractiveFeedbackResolver) Resolve(guess Word, attempt int) Feedback 
 	}
 }
 
-func (r *InteractiveFeedbackResolver) parseFeedback(feedbackBytes []byte) (Feedback, error) {
+func (r *InteractiveFeedbackResolver) parseFeedback(data []byte) (Feedback, error) {
 	feedback := Feedback{GREY, GREY, GREY, GREY, GREY}
 
-	if len(feedbackBytes) != 5 {
+	if len(data) != 5 {
 		return feedback, fmt.Errorf("invalid length")
 	}
 
 	for i := 0; i < wordLength; i++ {
-		char := feedbackBytes[i]
+		char := data[i]
 
 		switch char {
 		case '2':

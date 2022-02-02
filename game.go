@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 )
@@ -32,38 +31,34 @@ func (g *Game) Play() (*GameResult, error) {
 	g.Dictionary.ResetRemainingPossibleAnswers()
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		guess, err := g.guess(attempt)
-		if err != nil {
-			return nil, err
-		}
-
+		guess := g.guess(attempt)
 		guesses = append(guesses, guess)
 
 		feedback := g.FeedbackResolver.Resolve(guess, attempt)
 
-		if g.isComplete(feedback) {
+		if feedback.Success() {
 			win = true
 			break
 		}
 
-		g.Dictionary.UpdateRemainingPossibleAnswers(guess, feedback)
+		err := g.Dictionary.UpdateRemainingPossibleAnswers(guess, feedback)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &GameResult{Win: win, Guesses: guesses}, nil
 }
 
-func (g *Game) guess(attempt int) (Word, error) {
+func (g *Game) guess(attempt int) Word {
 	if attempt == 1 {
-		return optimalFirstGuess, nil
+		return optimalFirstGuess
 	}
 
-	if len(g.Dictionary.RemainingPossibleAnswers) == 0 {
-		return Word{}, fmt.Errorf("no remaining possible answers")
-	}
-
+	// Return a random answer if the probability of it being correct is >= 50%
 	if len(g.Dictionary.RemainingPossibleAnswers) <= 2 {
-		// Return a random answer if the probability of it being correct is >= 50%
-		return g.Dictionary.RemainingPossibleAnswers[rand.Intn(len(g.Dictionary.RemainingPossibleAnswers))], nil
+		n := rand.Intn(len(g.Dictionary.RemainingPossibleAnswers))
+		return g.Dictionary.RemainingPossibleAnswers[n]
 	}
 
 	var (
@@ -92,15 +87,5 @@ func (g *Game) guess(attempt int) (Word, error) {
 		}
 	}
 
-	return optimalGuess, nil
-}
-
-func (g *Game) isComplete(feedback Feedback) bool {
-	for _, colour := range feedback {
-		if colour != GREEN {
-			return false
-		}
-	}
-
-	return true
+	return optimalGuess
 }

@@ -32,7 +32,7 @@ func (d *Dictionary) ResetRemainingPossibleAnswers() {
 	d.RemainingPossibleAnswers = d.PossibleAnswers
 }
 
-func (d *Dictionary) UpdateRemainingPossibleAnswers(guess Word, feedback Feedback) {
+func (d *Dictionary) UpdateRemainingPossibleAnswers(guess Word, feedback Feedback) error {
 	var remainingPossibleAnswers []Word
 
 	for _, possibleAnswer := range d.RemainingPossibleAnswers {
@@ -52,20 +52,20 @@ func (d *Dictionary) UpdateRemainingPossibleAnswers(guess Word, feedback Feedbac
 		keep := true
 
 		for i := 0; i < wordLength; i++ {
-			matching := possibleAnswer[i] == guess[i]
+			match := possibleAnswer[i] == guess[i]
 
 			if feedback[i] == GREEN {
-				if !matching {
+				if !match {
 					keep = false
 					break
 				}
 			} else if feedback[i] == YELLOW {
-				if matching || possibleAnswerChars[guess[i]] < greenYellowChars[guess[i]] {
+				if match || possibleAnswerChars[guess[i]] < greenYellowChars[guess[i]] {
 					keep = false
 					break
 				}
 			} else { // GREY
-				if matching || possibleAnswerChars[guess[i]] >= guessChars[guess[i]] {
+				if match || possibleAnswerChars[guess[i]] >= guessChars[guess[i]] {
 					keep = false
 					break
 				}
@@ -77,5 +77,11 @@ func (d *Dictionary) UpdateRemainingPossibleAnswers(guess Word, feedback Feedbac
 		}
 	}
 
+	if len(remainingPossibleAnswers) == 0 {
+		return fmt.Errorf("no remaining possible answers")
+	}
+
 	d.RemainingPossibleAnswers = remainingPossibleAnswers
+
+	return nil
 }
